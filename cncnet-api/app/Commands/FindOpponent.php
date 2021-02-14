@@ -147,7 +147,8 @@ class FindOpponent extends Command implements SelfHandling, ShouldBeQueued {
             foreach ($qmMaps as $qmMap)
             {
                 $match = true;
-                if (array_key_exists($qmMap->bit_idx, $qmPlayer->map_side_array())
+
+                if (array_key_exists($qmMap->bit_idx, $qmPlayer->map_side_array()) //is current map in p1 unrejected maps
                 &&
                 $qmPlayer->map_side_array()[$qmMap->bit_idx] > -2
                 &&
@@ -163,7 +164,7 @@ class FindOpponent extends Command implements SelfHandling, ShouldBeQueued {
                             $qEntry->delete();
                             return;
                         }
-                        if (array_key_exists($qmMap->bit_idx, $opn->map_side_array())
+                        if (array_key_exists($qmMap->bit_idx, $opn->map_side_array()) //is current map in p2 unrejected maps
                         &&
                         ($opn->map_side_array()[$qmMap->bit_idx] < -1
                         ||
@@ -188,7 +189,54 @@ class FindOpponent extends Command implements SelfHandling, ShouldBeQueued {
 
             $qEntry->delete();
 
+            $recentlyPlayedFlag = true; //flag telling if map has been played in last 3 games
+            $count = 0;
+
+            while($recentlyPlayedFlag && $count < 50) {  //keep looping until a map is found that has not been played in last 3 games and count less than 50, in unlikely edge case no map is found
+            $recentlyPlayedFlag = false;
+            $count++;
+
             $map_idx = mt_rand(0, count($common_maps) - 1);
+
+            $recentGames = array_slice($player->playerGames(), 0, 3);  //grab the last 3 games p1 has played
+
+            foreach($recentGames as $recentGame) { //loop through the player's last 3 games and check if any of the 3 played maps === the randomly picked map
+            $recent_map_id = $recentGame->scen;
+
+                if ($recent_map_id === $qmMap->bit_idx) {
+                     $recentlyPlayedFlag = true;
+                     break;
+                }
+
+                //check opps, should just be 1 opponent
+                foreach ($qmOpns as $qOpn)
+                {
+                    $opn = $qOpn->qmPlayer;
+                    $oppPlayer = $qOpn->player;
+
+                   $oppRecentGames = $recentGames = array_slice($oppPlayer->playerGames(), 0, 3);  //grab the last 3 games p2 (opponent) has played
+
+                      foreach($oppRecentGames as $oppRecentGame) { //loop through the player's last 3 games and check if any of the 3 played maps === the randomly picked map
+                       $oppRecent_map_id = $oppRecentGame->scen;
+
+
+                    if ($recent_map_id === $qmMap->bit_idx) {
+                        $recentlyPlayedFlag = true;
+                          break;
+                    }
+
+                    }
+
+
+                }
+             }
+
+            if ($recentlyPlayedFlag) { //if the current map has already been played in last 3 games, then continue to the next map in the loop
+                continue;
+            }
+
+            }
+
 
             // Create the qm_matches db entry
             $qmMatch = new \App\QmMatch();
